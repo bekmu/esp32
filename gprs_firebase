@@ -1,0 +1,68 @@
+const char apn[]      = "internet.beeline.kz";
+const char gprsUser[] = ""; // GPRS User
+const char gprsPass[] = ""; // GPRS Password
+
+#define MODEM_RST            5
+#define MODEM_PWKEY          4
+#define MODEM_POWER_ON       23
+#define MODEM_TX             27
+#define MODEM_RX             26
+
+#define SerialMon Serial
+#define SerialAT Serial1
+#define TINY_GSM_MODEM_SIM800      // Modem is SIM800
+#define TINY_GSM_RX_BUFFER   1024  // Set RX buffer to 1Kb
+#include <TinyGsmClient.h>
+#include <IOXhop_FirebaseESP32.h>
+#define FIREBASE_HOST "https://esp32smartdetector.firebaseio.com/"
+#define FIREBASE_AUTH "ZNlbxTgXjDaa4VbuiEaz1IAU1JE7U2GqJ5iGsfn8"
+
+int sensor_pin = 35;
+
+#ifdef DUMP_AT_COMMANDS
+  #include <StreamDebugger.h>
+  StreamDebugger debugger(SerialAT, SerialMon);
+  TinyGsm modem(debugger);
+#else
+  TinyGsm modem(SerialAT);
+#endif
+
+TinyGsmClient client(modem);
+
+void setup() {
+  SerialMon.begin(115200);
+  pinMode(MODEM_PWKEY, OUTPUT);
+  pinMode(MODEM_RST, OUTPUT);
+  pinMode(MODEM_POWER_ON, OUTPUT);
+  digitalWrite(MODEM_PWKEY, LOW);
+  digitalWrite(MODEM_RST, HIGH);
+  digitalWrite(MODEM_POWER_ON, HIGH);
+  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  delay(30000);  
+  SerialMon.println("Initializing modem...");
+  modem.restart();   
+  delay(3000);    
+  SerialMon.print("Connecting to APN: ");
+  SerialMon.print(apn);
+  if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
+    SerialMon.println(" fail");
+  }
+  else {
+    SerialMon.println(" OK");
+    delay(30000);    
+    SerialMon.print("Connecting to ");
+    SerialMon.print(FIREBASE_HOST);   
+    Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+    Serial.println("ok");
+  }
+}
+
+void loop() {
+  Firebase.setFloat("number", 7.0);
+  if (Firebase.failed()) {
+      Serial.print("setting /number failed:");
+      Serial.println(Firebase.error());  
+      return;
+  }
+  delay(1000);
+}
